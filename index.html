@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT Music History Analyzer</title>
+    <style>
+        :root { --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --accent: #03dac6; --border: #333; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 2rem; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { max-width: 900px; width: 100%; }
+        
+        h1 { border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 25px; text-align: center; font-weight: 300; letter-spacing: 1px; }
+        
+        /* Instrucciones (Collapsible) */
+        details { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden; }
+        summary { padding: 1rem; cursor: pointer; font-weight: 600; color: var(--accent); background: rgba(255,255,255,0.03); outline: none; }
+        summary:hover { background: rgba(255,255,255,0.05); }
+        .steps { padding: 1rem 2rem; font-size: 0.95rem; line-height: 1.6; color: #ccc; border-top: 1px solid var(--border); }
+        .steps li { margin-bottom: 0.5rem; }
+        .steps a { color: var(--accent); text-decoration: none; }
+        .steps a:hover { text-decoration: underline; }
+        code { background: #333; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+
+        /* Controles */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .control-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: #888; }
+        select { 
+            width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; 
+            color: #fff; border-radius: 4px; font-size: 1rem; cursor: pointer; 
+        }
+        select:hover { border-color: var(--accent); }
+
+        /* Dropzone */
+        .dropzone { 
+            border: 2px dashed #444; padding: 2rem; text-align: center; border-radius: 10px; 
+            cursor: pointer; margin-bottom: 2rem; background: #1a1a1a; transition: 0.2s; 
+        }
+        .dropzone:hover { border-color: var(--accent); background: #222; }
+        .dropzone.loaded { border-color: var(--accent); background: rgba(3, 218, 198, 0.05); }
+
+        /* Output */
+        textarea { 
+            width: 100%; height: 500px; background: #151515; color: #00ff00; 
+            border: 1px solid var(--border); padding: 1rem; border-radius: 5px; 
+            font-family: monospace; font-size: 0.85rem; resize: vertical; 
+        }
+        
+        button { 
+            background: var(--accent); color: #000; border: none; padding: 12px 25px; 
+            font-weight: bold; cursor: pointer; margin-top: 15px; border-radius: 4px; 
+            width: 100%; font-size: 1rem; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+
+        .stats-bar {
+            display: flex; justify-content: space-between; font-size: 0.85rem; 
+            color: #888; margin-bottom: 0.5rem; padding: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 YT Music History Analyzer</h1>
+        
+        <details>
+            <summary>¿Cómo obtengo mi archivo historial de reproducciones.json? (Clic acá)</summary>
+            <ol class="steps">
+                <li>Andá a <a href="https://takeout.google.com/" target="_blank">Google Takeout</a>.</li>
+                <li>En la sección "Crear una exportación nueva" hacé clic en <strong>"Anular todas las selecciones"</strong> y vuelve a presionar en <strong>"Seleccionar todos"</strong>.</li>
+                <li>Bajá hasta encontrar <strong>"YouTube y YouTube Music"</strong> y seleccionalo.</li>
+                <li>Hacé clic en el botón que dice "Varios formatos", buscá "historial" y cambiá el valor "HTML" por <strong>"JSON"</strong>. Aceptá.</li>
+                <li>Hacé clic en el botón que dice "Se han incluido todos los datos de YouTube" (Si este botón no aparece, refrescá la página, suele fallar su carga) y seleccioná <strong>solo "Historial de videos"</strong>. Aceptá.</li>
+                <li>Hacé clic en "Siguiente paso" > "Crear exportación".</li>
+                <li>Cuando recibas el mail, descargá el ZIP y buscá el archivo <code>historial de reproducciones.json</code> adentro de la carpeta.</li>
+            </ol>
+        </details>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>📅 Periodo de Tiempo</label>
+                <select id="timeSelect" onchange="reprocess()">
+                    <option value="3">Últimos 3 Meses</option>
+                    <option value="6" selected>Últimos 6 Meses</option>
+                    <option value="12">Último Año (12 meses)</option>
+                    <option value="24">Últimos 2 Años</option>
+                    <option value="all">Todo el Historial</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>📊 Cantidad de Resultados</label>
+                <select id="limitSelect" onchange="reprocess()">
+                    <option value="10">Top 10</option>
+                    <option value="25">Top 25</option>
+                    <option value="50" selected>Top 50</option>
+                    <option value="100">Top 100</option>
+                    <option value="200">Top 200</option>
+                    <option value="Infinity">Sin Límite (Mostrar Todo)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+            📂 <span>Arrastrá tu <code>watch-history.json</code> acá</span>
+            <input type="file" id="fileInput" accept=".json" style="display:none">
+        </div>
+
+        <div id="output" style="display:none">
+            <div class="stats-bar">
+                <span id="stat-processed"></span>
+                <span id="stat-ignored"></span>
+            </div>
+            <textarea id="resultBox" readonly></textarea>
+            <button onclick="copyToClipboard()">Copiar Resultados</button>
+        </div>
+    </div>
+
+    <script>
+        let globalHistory = null;
+        
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropzone.onclick = () => fileInput.click();
+        dropzone.ondragover = (e) => { e.preventDefault(); dropzone.style.borderColor = '#03dac6'; };
+        dropzone.ondragleave = () => dropzone.style.borderColor = '#444';
+        dropzone.ondrop = (e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); };
+        fileInput.onchange = (e) => handleFiles(e.target.files);
+
+        function handleFiles(files) {
+            if (!files.length) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    globalHistory = JSON.parse(e.target.result);
+                    dropzone.innerHTML = "✅ <span>Archivo cargado correctamente</span>";
+                    dropzone.classList.add('loaded');
+                    reprocess();
+                } catch (err) {
+                    alert("Error al leer JSON: " + err);
+                }
+            };
+            reader.readAsText(files[0]);
+        }
+
+        function cleanArtist(str) {
+            if (!str) return "Desconocido";
+            return str.replace(/ - Topic/g, "").replace(/VEVO/g, "").replace(/Official/g, "").trim();
+        }
+
+        function cleanTitle(str) {
+            if (!str) return "";
+            return str.replace(/ \(Official Video\)/gi, "").replace(/ \(Audio\)/gi, "").replace(/ \[.*\]/g, "").trim();
+        }
+
+        function reprocess() {
+            if (!globalHistory) return;
+
+            const timeValue = document.getElementById('timeSelect').value;
+            const limitInput = document.getElementById('limitSelect').value;
+            
+            // Lógica para manejar "Infinity" correctamente
+            const limit = limitInput === "Infinity" ? Infinity : parseInt(limitInput);
+            
+            let cutoffDate = new Date();
+            if (timeValue === 'all') {
+                cutoffDate = new Date(0);
+            } else {
+                cutoffDate.setMonth(cutoffDate.getMonth() - parseInt(timeValue));
+            }
+
+            const songs = {};
+            const artists = {};
+            let totalProcessed = 0;
+            let totalIgnored = 0;
+
+            globalHistory.forEach(item => {
+                const date = new Date(item.time);
+                if (date < cutoffDate) return;
+
+                if (item.header !== "YouTube Music") {
+                    totalIgnored++;
+                    return; 
+                }
+                
+                if (!item.title || !item.subtitles || item.subtitles.length === 0) return;
+
+                let artistName = cleanArtist(item.subtitles[0].name);
+                let songTitle = cleanTitle(item.title);
+
+                if (songTitle.startsWith("Watched ") || songTitle.includes("http")) return;
+
+                totalProcessed++;
+                const songKey = `${songTitle} ||| ${artistName}`;
+
+                songs[songKey] = (songs[songKey] || 0) + 1;
+                artists[artistName] = (artists[artistName] || 0) + 1;
+            });
+
+            const topSongs = Object.entries(songs).sort((a,b) => b[1]-a[1]).slice(0, limit);
+            const topArtists = Object.entries(artists).sort((a,b) => b[1]-a[1]).slice(0, limit);
+
+            // Generar Reporte
+            const periodLabel = timeValue === 'all' ? "Todo el historial" : `Últimos ${timeValue} meses`;
+            const limitLabel = limit === Infinity ? "Sin Límite (Todo)" : `Top ${limit}`;
+            
+            let text = `[REPORTE V5.1 - FINAL]\n`;
+            text += `Periodo: ${periodLabel}\n`;
+            text += `Vista: ${limitLabel}\n`;
+            text += `Tracks Procesados: ${totalProcessed}\n\n`;
+            
+            text += `=== CANCIONES (${topSongs.length}) ===\n`;
+            topSongs.forEach(([k, v]) => {
+                const [t, a] = k.split(" ||| ");
+                text += `- ${t} | ${a} (${v})\n`;
+            });
+
+            text += `\n=== ARTISTAS (${topArtists.length}) ===\n`;
+            topArtists.forEach(([k, v]) => text += `- ${k} (${v})\n`);
+
+            document.getElementById('stat-processed').innerText = `Procesados: ${totalProcessed}`;
+            document.getElementById('stat-ignored').innerText = `Ignorados: ${totalIgnored}`;
+            document.getElementById('resultBox').value = text;
+            document.getElementById('output').style.display = 'block';
+        }
+
+        function copyToClipboard() {
+            document.getElementById('resultBox').select();
+            document.execCommand('copy');
+            const btn = document.querySelector('button');
+            const original = btn.innerText;
+            btn.innerText = "¡Copiado!";
+            setTimeout(() => btn.innerText = original, 1500);
+        }
+    </script>
+</body>
+</html>
